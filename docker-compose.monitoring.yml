@@ -1,4 +1,4 @@
-version: "3.8"
+version: "3.7"
 
 services:
   prometheus:
@@ -9,13 +9,11 @@ services:
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     networks:
-      - frontend-network
+      - monitoring-network
     restart: unless-stopped
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--web.external-url=/prometheus"
-    depends_on:
-      - cadvisor
 
   grafana:
     image: grafana/grafana
@@ -28,10 +26,8 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
     networks:
-      - frontend-network
+      - monitoring-network
     restart: unless-stopped
-    depends_on:
-      - loki
 
   loki:
     image: grafana/loki:2.8.2
@@ -41,7 +37,7 @@ services:
     volumes:
       - ./loki-config.yaml:/etc/loki/loki-config.yaml
     networks:
-      - frontend-network
+      - monitoring-network
     restart: unless-stopped
 
   promtail:
@@ -50,11 +46,8 @@ services:
     volumes:
       - /var/log:/var/log
     networks:
-      - frontend-network
-      - backend-network
+      - monitoring-network
     restart: unless-stopped
-    depends_on:
-      - loki
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
@@ -70,19 +63,13 @@ services:
       - "8081:8080"
     privileged: true
     networks:
-      - frontend-network
-      - backend-network
+      - monitoring-network
     restart: unless-stopped
-    depends_on:
-      - backend
-      - frontend
-      - adminer
-      - db
 
 
-# networks:
-#   monitoring-network:
-#     driver: bridge
+networks:
+  monitoring-network:
+    driver: bridge
 
 volumes:
    grafana-data:
