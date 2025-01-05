@@ -1,85 +1,65 @@
-version: "3.7"
-
 services:
+# Monitoring Stack Services
   prometheus:
     image: prom/prometheus
-    container_name: prometheus
     ports:
       - "9090:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-    networks:
-      - monitoring-network
-    restart: unless-stopped
     command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--web.external-url=/prometheus"
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--web.external-url=/prometheus'
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - shared_network
     depends_on:
       - cadvisor
 
   grafana:
-    image: grafana/grafana
-    container_name: grafana
+    image: grafana/grafana:latest
     ports:
       - "3000:3000"
     environment:
-      - GF_SERVER_ROOT_URL=http://techynurse.site/grafana
+      - GF_SERVER_ROOT_URL=http://localhost:3000/grafana
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
     volumes:
-      - grafana-data:/var/lib/grafana
+      - grafana:/var/lib/grafana
     networks:
-      - monitoring-network
-    restart: unless-stopped
-
-  loki:
-    image: grafana/loki:2.8.2
-    container_name: loki
-    ports:
-      - "3100:3100"
-    volumes:
-      - ./loki-config.yaml:/etc/loki/loki-config.yaml
-    networks:
-      - monitoring-network
-    restart: unless-stopped
-
-  promtail:
-    image: grafana/promtail:2.8.2
-    container_name: promtail
-    volumes:
-      - /var/log:/var/log
-    networks:
-      - monitoring-network
-    restart: unless-stopped
-    depends_on:
-      - loki
+      - shared_network
 
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
-    container_name: cadvisor
-    volumes:
-      - "/:/rootfs:ro"
-      - "/var/run:/var/run:ro"
-      - "/sys:/sys:ro"
-      - "/var/lib/docker/:/var/lib/docker:ro"
-      - "/dev/disk/:/dev/disk:ro"
-      - "/dev/disk/:/dev/disk:ro"
+    image: gcr.io/cadvisor/cadvisor:v0.47.0
     ports:
       - "8081:8080"
-    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
     networks:
-      - monitoring-network
-    restart: unless-stopped
+      - shared_network
     depends_on:
       - backend
       - frontend
       - adminer
       - db
 
-
-networks:
-  monitoring-network:
-    driver: bridge
+  loki:
+    image: grafana/loki:latest
+    ports:
+      - 3100:3100
+    volumes:
+      - ./monitoring/loki-config.yml:/etc/loki/loki-config.yaml
+    networks:
+      - shared_network
+  promtail:
+    image: grafana/promtail:latest
+    networks:
+      - shared_network
+    volumes:
+      - ./monitoring/promtail-config.yml:/etc/promtail/promtail-config.yaml
+      - /var/log:/var/log
+    depends_on:
+      - loki
 
 volumes:
-   grafana-data:
-    driver: local
+  grafana:

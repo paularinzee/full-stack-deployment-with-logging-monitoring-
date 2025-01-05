@@ -1,60 +1,44 @@
-version: '3.8'
+include:
+  - docker-compose-monitoring.yaml
 services:
-  nginx_proxy:
-    image: jc21/nginx-proxy-manager:latest
-    container_name: nginx_proxy_manager
-    ports:
-      - '80:80'
-      - "8090:81"
-    networks:
-      - monitoring-network
-    volumes:
-      - data:/data
-      - ./nginx/nginx.dev.conf:/data/nginx/custom/http_top.conf
-    depends_on:
-      - frontend
-      - backend
-      - db
-      - adminer  
+  # Application Stack Services
   backend:
     build:
       context: ./backend
-      container_name: fastapi_app
-      dockerfile: Dockerfile
+    container_name: fastapi_app
     ports:
       - "8000:8000"
-    networks:
-      - monitoring-network
     depends_on:
       - db
     env_file:
-      - backend/.env
+      - ./backend/.env
+    networks:
+      - shared_network
 
   frontend:
     build:
       context: ./frontend
-      container_name: nodejs_app
-      dockerfile: Dockerfile
+    container_name: nodejs_app
     ports:
       - "5173:5173"
-    networks:
-      - monitoring-network
     env_file:
-      - frontend/.env
-  
+      - ./frontend/.env
+    networks:
+      - shared_network
+
   db:
-    image: postgres:13
+    image: postgres:latest
     container_name: postgres_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: app
       POSTGRES_PASSWORD: changethis123
       POSTGRES_DB: app
-    ports:
-      - "5432"
     networks:
-      - monitoring-network
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - shared_network
 
   adminer:
     image: adminer
@@ -62,11 +46,32 @@ services:
     ports:
       - "8080:8080"
     networks:
-      - monitoring-network
+      - shared_network
+  proxy:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: nginx_proxy_manager
+    ports:
+      - "80:80"
+      - "443:443"
+      - "81:81"
+    environment:
+      DB_SQLITE_FILE: "/data/database.sqlite"
+    volumes:
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt
+    depends_on:
+      - db
+      - backend
+      - frontend
+      - adminer
+    networks:
+      - shared_network
+
 volumes:
   postgres_data:
   data:
+  letsencrypt:
 
 networks:
-  monitoring-network:
+  shared_network:
     driver: bridge
